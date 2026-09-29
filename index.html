@@ -1,0 +1,897 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Slayer 2 - Damage Optimiser</title>
+<meta name="description" content="Brute-force max M1 hit-damage build calculator for Slayers 2.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    color-scheme:light;
+    --bg:#eef0f4; --surface:#ffffff; --surface-2:#f4f6fb; --surface-3:#e9edf4;
+    --border:#d6dae4; --border-strong:#c3c9d6;
+    --text:#191c24; --muted:#5b6274; --faint:#868da0;
+    --accent:#c23a34; --accent-ink:#9c2b26; --accent-soft:rgba(194,58,52,.10);
+    --gold:#8a5f10; --gold-soft:rgba(138,95,16,.10);
+    --steel:#2c6a8a; --steel-soft:rgba(44,106,138,.10);
+    --good:#1f7a44;
+    --shadow:0 1px 2px rgba(20,24,38,.06),0 8px 24px rgba(20,24,38,.06);
+    --mono:'IBM Plex Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
+    --sans:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+    --disp:'Shippori Mincho B1',Georgia,'Times New Roman',serif;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.5;margin:0;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  .wrap{max-width:1120px;margin:0 auto;padding-inline:16px;padding-block:0 40px}
+
+  header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;
+    background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--border)}
+  .top-in{max-width:1120px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;gap:14px}
+  .brand{display:flex;align-items:center;gap:11px;min-width:0}
+  .blade{width:4px;height:30px;border-radius:2px;flex:none;background:var(--text)}
+  .brand h1{font-family:var(--disp);font-weight:700;font-size:19px;margin:0;letter-spacing:.2px;line-height:1.1}
+  .brand p{margin:0;font-size:11.5px;color:var(--faint);letter-spacing:.3px}
+  .credit{margin-top:3px;font-size:11px;color:var(--muted);letter-spacing:.2px}
+  .credit b{color:var(--text);font-weight:600}
+  .spacer{flex:1}
+  .hero{margin-top:22px;background:var(--surface);border:1px solid var(--border);border-radius:16px;
+    box-shadow:var(--shadow);overflow:hidden}
+  .hero-grid{display:grid;grid-template-columns:1.15fr 1fr;gap:0}
+  .hero-main{padding:22px 24px;border-right:1px solid var(--border)}
+  .eyebrow{font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:var(--text);margin:0 0 4px}
+  .bignum{font-family:var(--disp);font-weight:700;font-size:clamp(46px,10vw,70px);line-height:.95;
+    letter-spacing:-1px;font-variant-numeric:tabular-nums;color:var(--text);margin:2px 0 2px}
+  .bignum small{font-size:.34em;color:var(--muted);font-weight:600;letter-spacing:0}
+  .hero-sub{display:none}
+  .tag{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;
+    border:1px solid;letter-spacing:.2px;vertical-align:middle}
+  .tag.est{color:var(--muted);border-color:var(--border-strong);background:var(--surface-3)}
+  .tag.meas{color:var(--good);border-color:color-mix(in srgb,var(--good) 40%,transparent);background:color-mix(in srgb,var(--good) 10%,transparent)}
+  .hero-side{padding:20px 22px;display:grid;grid-template-columns:1fr 1fr;gap:16px 20px;align-content:center}
+  .kpi .kl{font-size:11px;color:var(--faint);letter-spacing:.4px;text-transform:uppercase;font-weight:600;margin-bottom:2px}
+  .kpi .kv{font-family:var(--mono);font-weight:600;font-size:22px;font-variant-numeric:tabular-nums}
+  .kpi.base .kv{color:var(--text)} .kpi.mult .kv{color:var(--text)}
+  .kpi .kh{display:none}
+
+  .cols{display:grid;grid-template-columns:380px 1fr;gap:20px;margin-top:20px;align-items:start}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow)}
+  .card>h2{font-family:var(--sans);font-weight:600;font-size:12px;letter-spacing:.9px;text-transform:uppercase;
+    color:var(--muted);margin:0;padding:15px 18px 0}
+  .card-body{padding:14px 18px 18px}
+  .panel-inputs{position:sticky;top:calc(env(safe-area-inset-top,0px) + 74px)}
+
+  .field{margin-top:13px}
+  .field:first-child{margin-top:6px}
+  .field label{display:block;font-size:12.5px;font-weight:500;margin-bottom:5px}
+  .field .hint{display:block;margin-top:2px;font-size:11px;color:var(--faint);font-weight:400}
+  .input,select{width:100%;font-family:var(--mono);font-size:14px;font-weight:500;color:var(--text);
+    background:var(--surface-2);border:1px solid var(--border-strong);border-radius:9px;padding:9px 11px;
+    font-variant-numeric:tabular-nums}
+  .input:focus,select:focus,input[type=checkbox]:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  .input[type=number]::-webkit-outer-spin-button,
+  .input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .input[type=number]{-moz-appearance:textfield;appearance:textfield}
+  .unit-wrap{position:relative}
+  .unit-wrap .input{padding-right:26px}
+  .unit-wrap .unit{position:absolute;right:11px;top:50%;transform:translateY(-50%);
+    font-family:var(--mono);font-size:14px;font-weight:600;color:var(--muted);pointer-events:none}
+  .combo{position:relative}
+  .combo-list{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:30;max-height:244px;overflow-y:auto;
+    background:var(--surface);border:1px solid var(--border-strong);border-radius:10px;box-shadow:var(--shadow);padding:4px}
+  .combo-item{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:7px;cursor:pointer;font-size:13px}
+  .combo-item:hover,.combo-item.active{background:var(--surface-3)}
+  .combo-item .cnote{color:var(--faint);font-size:11px}
+  .combo-item.none-opt{color:var(--faint)}
+  .combo-item.custom{color:var(--muted);border-top:1px solid var(--border);border-radius:0;margin-top:3px;padding-top:9px}
+  .combo-empty{padding:8px 9px;font-size:12.5px;color:var(--faint)}
+  .tl-wrap{display:flex;align-items:center;min-width:0}
+  .info-wrap{position:relative;display:inline-flex;margin-left:6px}
+  .info-btn{appearance:none;width:16px;height:16px;border-radius:50%;border:1px solid var(--border-strong);
+    background:var(--surface);color:var(--muted);font-size:10px;font-weight:700;font-style:italic;line-height:1;
+    cursor:help;flex:none;display:inline-grid;place-items:center;font-family:Georgia,'Times New Roman',serif}
+  .info-wrap:hover .info-btn,.info-wrap:focus-within .info-btn{color:var(--text);border-color:var(--text)}
+  .info-tip{position:absolute;left:50%;bottom:calc(100% + 9px);transform:translateX(-50%);width:230px;max-width:62vw;
+    background:var(--surface);color:var(--text);border:1px solid var(--border-strong);border-radius:9px;box-shadow:var(--shadow);
+    padding:9px 11px;font-size:12px;font-weight:400;line-height:1.5;z-index:40;
+    opacity:0;visibility:hidden;transition:opacity .12s;pointer-events:none}
+  .info-wrap:hover .info-tip,.info-wrap:focus-within .info-tip{opacity:1;visibility:visible}
+  .mode-seg,.yn-seg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .mode-btn,.yn-btn{appearance:none;border:1px solid var(--border-strong);background:var(--surface);color:var(--muted);
+    font-family:var(--sans);font-size:13px;font-weight:600;border-radius:9px;padding:9px 10px;cursor:pointer}
+  .mode-btn:hover,.yn-btn:hover{border-color:var(--text);color:var(--text)}
+  .mode-btn.active,.yn-btn.active{background:var(--text);color:var(--surface);border-color:var(--text)}
+  .sun-tag{display:inline-block;font-size:11px;font-weight:700;color:var(--gold);margin-left:6px;letter-spacing:.2px}
+  .sun-note{font-size:12.5px;font-weight:600;color:var(--text);background:var(--gold-soft);
+    border:1px solid color-mix(in srgb,var(--gold) 35%,transparent);border-radius:10px;padding:9px 12px;margin-bottom:12px}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .sec{margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+  .sec:first-of-type{margin-top:6px;border-top:0;padding-top:0}
+  .sec-h{font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--text);margin-bottom:2px;
+    display:flex;align-items:center;gap:7px}
+  .sec-h .ic{width:14px;height:14px;flex:none;color:var(--text);opacity:.85}
+  .sec-note{display:none}
+
+  .readout{font-family:var(--mono);font-size:13px;background:var(--surface-3);border:1px dashed var(--border-strong);
+    border-radius:9px;padding:8px 11px;color:var(--muted);display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .readout b{color:var(--text);font-weight:600}
+
+  .check{display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border-radius:9px;border:1px solid transparent}
+  .check:hover{background:var(--surface-2)}
+  .check input{margin-top:2px;width:16px;height:16px;accent-color:var(--accent);flex:none;cursor:pointer}
+  .check .tl{font-size:13px;font-weight:500;cursor:pointer}
+  .chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:3px}
+  .chip{font-family:var(--mono);font-size:10.5px;font-weight:500;padding:1px 6px;border-radius:5px;
+    background:var(--surface-3);color:var(--muted);border:1px solid var(--border)}
+  .chip.d{color:var(--steel);border-color:color-mix(in srgb,var(--steel) 35%,transparent);background:var(--steel-soft)}
+  .chip.dm{color:var(--gold);border-color:color-mix(in srgb,var(--gold) 35%,transparent);background:var(--gold-soft)}
+  .chip.none{opacity:.7}
+  .rar{font-family:var(--sans);font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;
+    padding:1px 8px;border-radius:5px;border:1px solid}
+  .rar.common{color:#5b6274;background:#eceef3;border-color:#d6dae4}
+  .rar.rare{color:#1f6fb0;background:#e6f0fb;border-color:#c2dbf3}
+  .rar.epic{color:#7a3ca6;background:#f1e8fb;border-color:#ddc9f0}
+  .rar.legendary{color:#9a6b12;background:#fbf1d8;border-color:#eedaa6}
+  .toggle-line{display:flex;align-items:center;gap:10px;justify-content:space-between;margin-top:6px}
+  .switch{position:relative;width:40px;height:23px;flex:none}
+  .switch input{opacity:0;width:0;height:0}
+  .slider{position:absolute;inset:0;background:var(--border-strong);border-radius:999px;transition:.15s;cursor:pointer}
+  .slider:before{content:"";position:absolute;height:17px;width:17px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.15s;box-shadow:0 1px 2px rgba(0,0,0,.3)}
+  .switch input:checked+.slider{background:var(--accent)}
+  .switch input:checked+.slider:before{transform:translateX(17px)}
+
+  .build{border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-top:14px;background:var(--surface-2)}
+  .build:first-of-type{margin-top:4px}
+  .build.win{border-color:var(--text)}
+  .build-head{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface-3);border-bottom:1px solid var(--border)}
+  .build-head .bt{font-weight:600;font-size:13px;display:flex;align-items:center;gap:8px}
+  .rank{width:20px;height:20px;border-radius:6px;background:var(--accent);color:#fff;font-size:11px;font-weight:700;
+    display:grid;place-items:center;flex:none;font-family:var(--mono)}
+  .rank.alt{background:var(--border-strong);color:var(--text)}
+  .build-head .bv{margin-left:auto;font-family:var(--mono);font-weight:700;font-size:15px;color:var(--text)}
+  .slotcount{font-size:11px;color:var(--faint);font-family:var(--mono)}
+  .slots{padding:6px 14px 12px}
+  .slot{display:flex;gap:11px;padding:8px 0;border-bottom:1px solid var(--border)}
+  .slot:last-child{border-bottom:0}
+  .slot .role{font-size:11px;font-weight:600;letter-spacing:.3px;text-transform:uppercase;color:var(--muted);
+    width:96px;flex:none;padding-top:2px}
+  .slot .opts{flex:1;min-width:0}
+  .slot .stat{font-family:var(--mono);font-size:11px;font-weight:600;margin-bottom:3px}
+  .slot .stat .d{color:var(--text)} .slot .stat .m{color:var(--text)}
+  .qty{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;color:var(--text);
+    background:var(--surface-3);border:1px solid var(--border);border-radius:5px;padding:0 5px;margin-right:6px}
+  .items{font-size:12.5px;color:var(--text)}
+  .items .or{color:var(--faint);font-size:11px;font-style:italic;margin:0 3px}
+  .altnote{font-size:11px;color:var(--steel);margin-top:6px;padding-left:0}
+  .titles-eq{display:flex;flex-wrap:wrap;gap:6px}
+  .tpill{font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;border:1px solid;
+    color:var(--text);border-color:var(--border-strong);background:var(--surface-3)}
+  .tpill.free{color:var(--faint);border-color:var(--border-strong);background:transparent;font-weight:500;font-style:italic}
+
+  .bd{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:2px}
+  .bd th{text-align:left;font-size:10.5px;letter-spacing:.6px;text-transform:uppercase;color:var(--faint);
+    font-weight:600;padding:6px 8px;border-bottom:1px solid var(--border)}
+  .bd td{padding:6px 8px;border-bottom:1px solid var(--border)}
+  .bd td.n{font-family:var(--mono);text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+  .bd tr.sum td{font-weight:700;color:var(--text);border-top:1.5px solid var(--border-strong);border-bottom:0}
+  .bd tr.sum td.n{color:var(--text)}
+  .bd tr.sum.m td.n{color:var(--text)}
+  .bd tr.bd-spacer td{border:0;padding-block:6px}
+  .bd .src{color:var(--text)} .bd .sub{display:none}
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media (max-width:760px){.split{grid-template-columns:1fr}}
+
+  .notes{display:none}
+  .notes h3{font-size:11px;letter-spacing:.9px;text-transform:uppercase;color:var(--faint);margin:0 0 8px;font-weight:600}
+  .notes ul{margin:0;padding-left:18px;display:grid;gap:7px}
+  .notes b{color:var(--text);font-weight:600}
+  .warn{color:var(--gold)}
+
+  @media (max-width:900px){
+    .hero-grid{grid-template-columns:1fr}
+    .hero-main{border-right:0;border-bottom:1px solid var(--border)}
+    .cols{grid-template-columns:1fr}
+    .panel-inputs{position:static}
+    .brand p{display:none}
+  }
+  @media (max-width:440px){
+    .hero-side{grid-template-columns:1fr 1fr}
+    .slot .role{width:100%;flex:1 1 100%}
+    .slot{flex-wrap:wrap;gap:4px}
+  }
+  .build-foot{display:flex;justify-content:flex-end;padding:10px 14px;border-top:1px solid var(--border);background:var(--surface-2)}
+  .whatif-btn{appearance:none;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);
+    font-family:var(--sans);font-size:12.5px;font-weight:600;border-radius:8px;padding:8px 13px;cursor:pointer}
+  .whatif-btn:hover{border-color:var(--text)}
+  .whatif-btn .cnt{color:var(--muted);font-weight:500}
+  .gear-panel{padding:14px;border-top:1px solid var(--border);background:var(--surface)}
+  .gear-note{font-size:12.5px;color:var(--muted);margin:0 0 14px;line-height:1.5}
+  .gear-h{font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);margin:16px 0 8px}
+  .gear-h.first{margin-top:0}
+  .gear-row{display:flex;align-items:center;gap:10px;padding:8px 11px;border:1px solid var(--border);border-radius:9px;
+    background:var(--surface-2);margin-bottom:6px}
+  .gear-row .gn{font-size:13px;font-weight:500;flex:1;min-width:0}
+  .gear-row .gx{appearance:none;border:1px solid var(--border-strong);background:var(--surface);color:var(--muted);
+    width:25px;height:25px;border-radius:6px;cursor:pointer;font-size:11px;line-height:1;flex:none}
+  .gear-row .gx:hover{color:var(--surface);background:var(--text);border-color:var(--text)}
+  .gear-row.ex .gn{text-decoration:line-through;color:var(--faint)}
+  .gear-restore{appearance:none;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);
+    font-size:11px;font-weight:600;border-radius:6px;padding:4px 10px;cursor:pointer;flex:none}
+  .gear-restore:hover{border-color:var(--text)}
+  .gear-empty{font-size:12.5px;color:var(--faint);font-style:italic;padding:2px 0}
+
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="top-in">
+    <div class="brand">
+      <div class="blade" aria-hidden="true"></div>
+      <div>
+        <h1>Slayer 2 - Damage Optimiser</h1>
+        <p>Slayers&nbsp;2 · max M1 hit-damage build search</p>
+        <div class="credit">Made by <b>J4ck7232</b> · Discord: <b>ej4ck7232</b> — DM me if you have any questions</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <section class="hero" aria-live="polite">
+    <div class="hero-grid">
+      <div class="hero-main">
+        <p class="eyebrow">Peak M1 hit damage</p>
+        <div class="bignum"><span id="heroDmg">—</span></div>
+        <div class="hero-sub" id="heroSub">Adjust your inputs to search every valid loadout.</div>
+      </div>
+      <div class="hero-side">
+        <div class="kpi base">
+          <div class="kl">Total Additional Damage</div>
+          <div class="kv" id="kpiBase">—</div>
+          <div class="kh">flat damage before multiplier</div>
+        </div>
+        <div class="kpi mult">
+          <div class="kl">Total Additional Damage Factor</div>
+          <div class="kv" id="kpiMult">—</div>
+          <div class="kh">additive-to-1 stacking</div>
+        </div>
+        <div class="kpi">
+          <div class="kl">Mastery bonus</div>
+          <div class="kv" id="kpiHidden" style="color:var(--text)">—</div>
+          <div class="kh" id="kpiHiddenSrc">—</div>
+        </div>
+        <div class="kpi">
+          <div class="kl">Tied best builds</div>
+          <div class="kv" id="kpiTies" style="color:var(--text)">—</div>
+          <div class="kh">equally-optimal loadouts</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="cols">
+    <div class="card panel-inputs">
+      <h2>Your character</h2>
+      <div class="card-body">
+
+        <div class="sec">
+          <div class="mode-seg">
+            <button type="button" class="mode-btn active" data-mode="slayer">Slayer</button>
+            <button type="button" class="mode-btn" data-mode="demon">Demon</button>
+          </div>
+          <div class="field" id="sunField" hidden style="margin-top:12px">
+            <label>Build with sun immunity?</label>
+            <div class="yn-seg">
+              <button type="button" class="yn-btn active" data-sun="no">No</button>
+              <button type="button" class="yn-btn" data-sun="yes">Yes</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="sec">
+          <div class="sec-h">Base stats</div>
+          <div class="field">
+            <label for="skill">Skill-tree damage <span class="hint">3.1 is the max skill tree</span></label>
+            <input class="input" id="skill" type="number" step="0.1" value="3.1" inputmode="decimal">
+          </div>
+        </div>
+
+        <div class="sec">
+          <div class="sec-h">Mastery bonus</div>
+          <div class="sec-note">Invisible on the character sheet — added to base damage before the multiplier.</div>
+          <div class="field" id="masteryField">
+            <label for="mastery">Mastery level <span class="hint">0–400</span></label>
+            <input class="input" id="mastery" type="number" min="0" max="400" step="1" value="" placeholder="0" inputmode="numeric">
+          </div>
+          <div class="readout" id="masteryReadout" style="margin-top:10px">
+            <span>Estimated mastery bonus</span><b id="hiddenEst">13.80</b>
+          </div>
+          <div class="toggle-line" style="margin-top:12px">
+            <span class="tl-wrap">
+              <label class="tl" for="measChk" style="font-size:12.5px;font-weight:500">I measured my own mastery bonus</label>
+              <span class="info-wrap">
+                <button type="button" class="info-btn" aria-describedby="measInfo" aria-label="More information">i</button>
+                <span class="info-tip" id="measInfo" role="tooltip">Take your M1 damage and divide it by your Additional Damage Factor, then minus your Additional Damage, to get your mastery bonus.<br><br><b>Note:</b> Entering a number here will be more accurate than relying on a level-based estimate.</span>
+              </span>
+            </span>
+            <label class="switch"><input type="checkbox" id="measChk"><span class="slider"></span></label>
+          </div>
+          <div class="field" id="measField" hidden>
+            <label for="measVal">Measured mastery bonus <span class="hint">— overrides the estimate</span></label>
+            <input class="input" id="measVal" type="number" step="0.01" value="13.80" inputmode="decimal">
+          </div>
+        </div>
+
+        <div class="sec">
+          <div class="sec-h">Weapon or Katana</div>
+          <div class="sec-note">Refinement/Tier is baked into your displayed stats, so enter them directly.</div>
+          <div class="row2">
+            <div class="field" style="margin-top:0">
+              <label for="katD">Additional Damage <span class="hint">e.g. 7.5</span></label>
+              <input class="input" id="katD" type="number" step="0.01" value="0" inputmode="decimal">
+            </div>
+            <div class="field" style="margin-top:0">
+              <label for="katDM">Additional Damage Factor <span class="hint">e.g. 1.15x</span></label>
+              <div class="unit-wrap">
+                <input class="input" id="katDM" type="number" step="0.001" value="1.0" inputmode="decimal">
+                <span class="unit" aria-hidden="true">x</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sec">
+          <div class="sec-h">Clan</div>
+          <div class="field" style="margin-top:0">
+            <label for="clanSearch">Your clan <span class="hint">search the list, or choose Custom</span></label>
+            <div class="combo" id="clanCombo">
+              <input class="input" id="clanSearch" type="text" autocomplete="off" placeholder="Search your clan…" role="combobox" aria-expanded="false" aria-controls="clanList" aria-autocomplete="list">
+              <div class="combo-list" id="clanList" hidden role="listbox"></div>
+            </div>
+          </div>
+          <div class="field" id="clanCustomField" hidden>
+            <label for="clanCustom">Additional Damage Factor <span class="hint">e.g. 1.15x</span></label>
+            <div class="unit-wrap">
+              <input class="input" id="clanCustom" type="number" step="0.001" value="1.0" inputmode="decimal">
+              <span class="unit" aria-hidden="true">x</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="sec">
+          <div class="sec-h">Titles owned</div>
+          <div class="sec-note">Tick what you own. Passives are always on; the search picks the best 3 to equip.</div>
+          <div id="titleList"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <div style="display:grid;gap:20px;min-width:0">
+      <div class="card">
+        <h2>Your optimal loadout<span id="tieHead" style="color:var(--faint);text-transform:none;letter-spacing:0;font-weight:400"></span></h2>
+        <div class="card-body" id="buildsBox"></div>
+      </div>
+
+      <div class="card">
+        <h2>Damage breakdown</h2>
+        <div class="card-body">
+          <div class="split">
+            <div>
+              <table class="bd" id="bdBase"></table>
+            </div>
+            <div>
+              <table class="bd" id="bdMult"></table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="notes">
+    <h3>How this is computed &amp; what's uncertain</h3>
+    <ul>
+      <li><b>Formula:</b> Final M1 = (total base damage + hidden mastery bonus) × total multiplier. The hidden bonus is added <b>before</b> the multiplier (empirically confirmed). Multipliers stack <b>additive-to-1</b>: a 1.05× and a 1.10× give 1.15×, not 1.155×.</li>
+      <li><span class="warn"><b>Mastery estimate:</b></span> the hidden bonus uses <b>13.80 − 0.0271 × (400 − level)</b>. Only the slope and the level-400 anchor (13.80) are confirmed; the low-level offset is <b>unverified</b>. If you've measured yours, switch on the override for a <b>measured</b> value.</li>
+      <li><b>Katana &amp; clan</b> are taken from your own character sheet, so Refinement/Tier is already included. The katana catalog is reference-only and isn't searched.</li>
+      <li><b>Titles:</b> only Combat titles with a damage (d) or multiplier (dm) stat affect M1. Passive components apply the moment a title is owned; exactly 3 active slots are optimized. Other stats (hp, dr, block, attack speed) are ignored for per-hit damage.</li>
+      <li><b>Equipment:</b> 5 slots total across Back, Ears, Face, Haori, Head, Neck, Outfits, Waist. Max 1 Haori. Only d and dm affect the result, so zero-damage cosmetics are never chosen. Any Nightfall/Firstlight piece you own may hit harder than its catalog row if it's refined — enter such items via your katana/clan fields where they apply.</li>
+      <li><b>Ties &amp; cost:</b> when several loadouts hit the same peak they're all shown, and each slot lists every interchangeable item, because no item price/rarity data exists to break ties by "cheapest." Pick whichever you can get.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+"use strict";
+const FREE = [
+  {d:2,   dm:0,     names:["Nichirin Lantern","Red Oni Mask","Silver Fang Mask","Hollowfied Mask","Scarred Warding Mask","Demonic Horns II"]},
+  {d:2,   dm:0.015, names:["Demonic Lantern","Bamboo Muzzle"]},
+  {d:2,   dm:0.017, names:["Nightfall Mask"]},
+  {d:1,   dm:0,     names:["Floral Warding Mask","Spiral Mask","Two-Horned Mask","Black Vulture Hat","Demonic Horns"]},
+  {d:0,   dm:0.055, names:["Flame Scarf (Neck)"]},
+  {d:0,   dm:0.055, names:["Flame Amigasa (Head)"], sun:true},
+  {d:0,   dm:0.05,  names:["Stone Necklace","Overdrive Earrings"]},
+  {d:0,   dm:0.04,  names:["Lost Mask"]},
+  {d:0,   dm:0.035, names:["Ice Necklace","Insect Necklace","Pyrokinesis Necklace","Serpent Necklace","Shockwave Necklace","Fujiko's Lantern (Waist)"]},
+  {d:0,   dm:0.03,  names:["Lost Lantern (Waist)"]},
+  {d:0,   dm:0.02,  names:["Crimson Earrings","Crimson Necklace","Prayer of Wind Necklace","Blood Manipulation Necklace","Cryokinesis Necklace","Flame Necklace","Ninja Fang Scarf","Overdrive Necklace","Sound Necklace","Thunder Necklace","Water Necklace","Wind Necklace"]},
+  {d:0,   dm:0.015, names:["Obi Manipulation Necklace","Reaper Necklace","Tidal Necklace"]},
+  {d:0,   dm:0,     names:["Straw Fringe Hat","Bamboo Sandogasa","Akatsuki Straw Hat","Classic Straw Hat"], sun:true},
+];
+const HAORI = [
+  {d:0, dm:0.07,  names:["Flame Haori Style 1","Serpent Haori"]},
+  {d:2, dm:0.02,  names:["Stone Haori"]},
+  {d:0, dm:0.04,  names:["Bokashi-Zome Kata-Aki"]},
+  {d:0, dm:0.035, names:["Kuzushiji Kata-Aki","Mandala Kata-Aki","Moonlit Kata-Aki"]},
+  {d:1, dm:0.015, names:["Flame Haori Style 2","Wind Haori"]},
+  {d:0, dm:0.03,  names:["Lost Cape"]},
+];
+const UNIFORMS = [{d:1, dm:0.0125, names:["Flame Slayer Uniform","Stone Slayer Uniform"]}];
+const BOTTOMS = [
+  {d:0,    dm:0.04,  names:["Enru's Bottom"]},
+  {d:1,    dm:0,     names:["Kaiden's Bottom"]},
+  {d:1.15, dm:0.017, names:["Nightfall Bottom"]},
+];
+const SHIRTS = [
+  {d:1,    dm:0,     names:["Kaiden's Top"]},
+  {d:0,    dm:0.04,  names:["Datai's Outfit","Enru's Top"]},
+  {d:1,    dm:0.015, names:["Reaper's Outfit"]},
+  {d:1.15, dm:0.017, names:["Nightfall Top"]},
+  {d:0,    dm:0.065, names:["Lost Outfit"]},
+];
+const TITLES = [
+  {name:"Blooded",        own:false, rarity:"common",    dA:0,   dmA:0.009, dP:0},
+  {name:"Bruised",        own:false, rarity:"common",    dA:0,   dmA:0,     dP:0},
+  {name:"Challenger",     own:false, rarity:"common",    dA:0,   dmA:0,     dP:0},
+  {name:"Hardhitter",     own:false, rarity:"common",    dA:0.75,dmA:0,     dP:0.10},
+  {name:"Bonebreaker",    own:false, rarity:"rare",      dA:1.0, dmA:0,     dP:0.15},
+  {name:"Scarred",        own:false, rarity:"rare",      dA:0,   dmA:0,     dP:0},
+  {name:"Devastator",     own:false, rarity:"epic",      dA:1.5, dmA:0,     dP:0.20},
+  {name:"Monster Hunter", own:false, rarity:"epic",      dA:0,   dmA:0.012, dP:0},
+  {name:"Nemesis",        own:false, rarity:"legendary", dA:0,   dmA:0,     dP:0},
+  {name:"Annihilator",    own:false, rarity:"legendary", dA:2.0, dmA:0,     dP:0.25},
+  {name:"Reaper",         own:false, rarity:"legendary", dA:0,   dmA:0.022, dP:0},
+  {name:"Relentless",     own:false, rarity:"legendary", dA:0,   dmA:0,     dP:0},
+];
+
+function pareto(points){
+  points.sort((a,b)=> b.X-a.X || b.Y-a.Y);
+  const front=[]; let maxY=-Infinity;
+  for(const p of points){ if(p.Y > maxY + 1e-12){ front.push(p); maxY=p.Y; } }
+  return front;
+}
+
+let EXCLUDED=new Set();
+let LAST_RES=null;
+let MODE="slayer", SUN=false;
+let AFREE_ALL=FREE, AFREE=FREE, AHAORI=HAORI, AUNIFORMS=UNIFORMS, ABOTTOMS=BOTTOMS, ASHIRTS=SHIRTS;
+function applyExclusions(){
+  const keep=g=>({...g, names:g.names.filter(n=>!EXCLUDED.has(n))});
+  const filt=arr=>arr.map(keep).filter(g=>g.names.length>0);
+  AFREE_ALL=filt(FREE);
+  AFREE=AFREE_ALL.filter(g=>g.d>0||g.dm>0);
+  AHAORI=filt(HAORI);
+  AUNIFORMS=filt(UNIFORMS); ABOTTOMS=filt(BOTTOMS); ASHIRTS=filt(SHIRTS);
+}
+
+let EQFRONT=[], EQFRONT_SUN=[];
+function outfitConfigs(){
+  const cfgs=[{d:0,dm:0,slots:0,parts:[]}];
+  for(const u of AUNIFORMS) cfgs.push({d:u.d,dm:u.dm,slots:1,parts:[{role:"Uniform",d:u.d,dm:u.dm,names:u.names}]});
+  for(const s of ASHIRTS) cfgs.push({d:s.d,dm:s.dm,slots:1,parts:[{role:"Outfit · Top",d:s.d,dm:s.dm,names:s.names}]});
+  for(const b of ABOTTOMS) cfgs.push({d:b.d,dm:b.dm,slots:1,parts:[{role:"Outfit · Bottom",d:b.d,dm:b.dm,names:b.names}]});
+  for(const b of ABOTTOMS) for(const s of ASHIRTS)
+    cfgs.push({d:b.d+s.d,dm:b.dm+s.dm,slots:2,parts:[
+      {role:"Outfit · Top",d:s.d,dm:s.dm,names:s.names},
+      {role:"Outfit · Bottom",d:b.d,dm:b.dm,names:b.names}]});
+  return cfgs;
+}
+function enumFree(pool, R, requireSun, cb){
+  const n=pool.length;
+  (function rec(i,rem,d,dm,sun,picks){
+    if(rem===0){ if(requireSun==null || sun===requireSun) cb(d,dm,picks); return; }
+    if(i===n) return;
+    const g=pool[i], isSun=g.sun?1:0;
+    const cap=Math.min(g.names.length, rem);
+    for(let q=0;q<=cap;q++){
+      if(requireSun!=null && isSun && sun+q>requireSun) break;
+      if(q>0) picks.push({g,qty:q});
+      rec(i+1, rem-q, d+g.d*q, dm+g.dm*q, sun+isSun*q, picks);
+      if(q>0) picks.pop();
+    }
+  })(0,R,0,0,0,[]);
+}
+function buildFront(pool, requireSun){
+  const map=new Map();
+  const haoriOpts=[{d:0,dm:0,slots:0,names:null}].concat(AHAORI.map(h=>({d:h.d,dm:h.dm,slots:1,names:h.names})));
+  for(const oc of outfitConfigs()){
+    for(const ha of haoriOpts){
+      const used=oc.slots+ha.slots;
+      if(used>5) continue;
+      const R=5-used;
+      enumFree(pool, R, requireSun, (fd,fdm,picks)=>{
+        const X=oc.d+ha.d+fd, Y=oc.dm+ha.dm+fdm;
+        const key=X.toFixed(4)+"|"+Y.toFixed(4);
+        let e=map.get(key);
+        if(!e){ e={X,Y,structs:[]}; map.set(key,e); }
+        if(e.structs.length<10)
+          e.structs.push({oc, ha, picks:picks.map(p=>({g:p.g,qty:p.qty}))});
+      });
+    }
+  }
+  return pareto(Array.from(map.values()));
+}
+function buildEqFront(){
+  EQFRONT=buildFront(AFREE, null);
+  EQFRONT_SUN=buildFront(AFREE_ALL, 1);
+}
+
+let TFRONT=[];
+function ownedTitles(){ return TITLES.filter(t=>t.own); }
+function buildTitleFront(){
+  const dmg=ownedTitles().filter(t=>t.dA>0||t.dmA>0);
+  const map=new Map();
+  const n=dmg.length;
+  for(let mask=0; mask< (1<<n); mask++){
+    let cnt=0; for(let i=0;i<n;i++) if(mask&(1<<i)) cnt++;
+    if(cnt>3) continue;
+    let X=0,Y=0,names=[];
+    for(let i=0;i<n;i++) if(mask&(1<<i)){ X+=dmg[i].dA; Y+=dmg[i].dmA; names.push(dmg[i].name); }
+    const key=X.toFixed(4)+"|"+Y.toFixed(4);
+    let e=map.get(key);
+    if(!e){ e={X,Y,structs:[]}; map.set(key,e); }
+    if(e.structs.length<6) e.structs.push({names});
+  }
+  TFRONT=pareto(Array.from(map.values()));
+}
+
+const $=id=>document.getElementById(id);
+function num(id,def){ const v=parseFloat($(id).value); return Number.isFinite(v)?v:def; }
+function readBase(){
+  const skill=num("skill",0);
+  const katD=num("katD",0), katDM=num("katDM",1);
+  const clanD=0;
+  let level=Math.max(0,Math.min(400,num("mastery",0)));
+  const measured=$("measChk").checked;
+  const hiddenEst=13.80-0.0271*(400-level);
+  const hidden=measured?num("measVal",hiddenEst):hiddenEst;
+  const passD=ownedTitles().reduce((a,t)=>a+t.dP,0);
+  const katC=katDM-1;
+  const clanC = CLAN.mode==="custom" ? (num("clanCustom",1)-1) : CLAN.factor;
+  return {
+    skill,katD,katC,clanD,clanC,level,measured,hiddenEst,hidden,passD,
+    baseD: skill+katD+clanD+hidden+passD,
+    baseDM: 1+katC+clanC
+  };
+}
+
+function evaluate(b, front){
+  let best=-Infinity, ties=[];
+  for(const e of front) for(const t of TFRONT){
+    const D=b.baseD+e.X+t.X, DM=b.baseDM+e.Y+t.Y, v=D*DM;
+    if(v>best+1e-7){ best=v; ties=[{e,t,D,DM,v}]; }
+    else if(Math.abs(v-best)<=1e-6){ ties.push({e,t,D,DM,v}); }
+  }
+  ties.sort((a,b)=> b.e.structs.length - a.e.structs.length);
+  return {best,ties};
+}
+
+const f2=n=>n.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+const f3=n=>n.toLocaleString(undefined,{minimumFractionDigits:3,maximumFractionDigits:3});
+const sgn=n=>(n>=0?"+":"")+f2(n);
+function itemsHTML(names){
+  return names.map(n=>`<span>${n}</span>`).join('<span class="or">or</span>');
+}
+function slotsFromStruct(s){
+  const rows=[];
+  if(s.oc && s.oc.parts) for(const p of s.oc.parts)
+    rows.push({d:p.d, dm:p.dm, names:p.names});
+  if(s.ha && s.ha.names)
+    rows.push({d:s.ha.d, dm:s.ha.dm, names:s.ha.names});
+  for(const p of s.picks){
+    const fp=p.g, sun=!!fp.sun;
+    if(p.qty===fp.names.length){
+      for(const nm of fp.names) rows.push({d:fp.d, dm:fp.dm, names:[nm], sun});
+    } else {
+      for(let k=0;k<p.qty;k++) rows.push({d:fp.d, dm:fp.dm, names:fp.names, sun});
+    }
+  }
+  return rows;
+}
+function slotRowHTML(r){
+  const stat=[];
+  if(r.d) stat.push(`<span class="d">+${f2(r.d)} Additional Damage</span>`);
+  if(r.dm) stat.push(`<span class="m">+${f3(r.dm)} Additional Damage Factor</span>`);
+  if(!stat.length) stat.push('<span style="color:var(--faint)">no bonus</span>');
+  const sun=r.sun?'<span class="sun-tag">- sun immunity</span>':'';
+  return `<div class="slot"><div class="role">Equipment</div><div class="opts">
+    <div class="stat">${stat.join(' &nbsp; ')}${sun}</div>
+    <span class="items">${itemsHTML(r.names)}</span></div></div>`;
+}
+function buildCardHTML(tie, rank, isWin){
+  const s=tie.e.structs[0];
+  const rows=slotsFromStruct(s);
+  const slotCount=rows.length;
+  let html=`<div class="build ${isWin?'win':''}">
+    <div class="build-head">
+      <div class="bt">${isWin?'':`<span class="rank alt">${rank}</span>`}${isWin?'Optimal build':'Equal-damage alternative'}</div>
+      <span class="slotcount">${slotCount}/5 slots</span>
+      <span class="bv">${f2(tie.v)}</span>
+    </div>
+    <div class="slots">`;
+  html+=rows.map(slotRowHTML).join('');
+  const tn=tie.t.structs[0].names;
+  const pills=tn.map(n=>`<span class="tpill">${n}</span>`);
+  for(let i=tn.length;i<3;i++) pills.push('<span class="tpill free">free slot</span>');
+  html+=`<div class="slot"><div class="role">Titles</div><div class="opts">
+    <div class="stat">${tie.t.X?`<span class="d">+${f2(tie.t.X)} Additional Damage</span>`:''}${tie.t.X&&tie.t.Y?' &nbsp; ':''}${tie.t.Y?`<span class="m">+${f3(tie.t.Y)} Additional Damage Factor</span>`:''}${(!tie.t.X&&!tie.t.Y)?'<span style="color:var(--faint)">no active bonus</span>':''}</div>
+    <div class="titles-eq">${pills.join('')}</div></div></div>`;
+  html+=`</div>`;
+  const alts=tie.e.structs.length-1;
+  if(alts>0){
+    html+=`<div class="slots" style="padding-top:0"><div class="altnote">↔ ${alts} other equipment layout${alts>1?'s':''} give the exact same stat line — e.g. `+
+      altSummary(tie.e.structs[1])+ (alts>1?', …':'')+`</div></div>`;
+  }
+  if(isWin) html+=whatIfSectionHTML();
+  html+=`</div>`;
+  return html;
+}
+function altSummary(s){
+  const rows=slotsFromStruct(s);
+  return rows.map(r=> r.names[0]+(r.names.length>1?" …":"")).join(' + ');
+}
+
+function renderBuilds(res, b){
+  const box=$("buildsBox");
+  const note = b.kamadoSun
+    ? `<div class="sun-note">☀ Sun immunity from your Kamado clan — no equipment slot is spent on it.</div>`
+    : b.sunConstraint
+    ? `<div class="sun-note">Sun Immunity built in, therefore one slot is locked to a sun immunity item.</div>`
+    : "";
+  if(!res.ties.length){
+    box.innerHTML=note+`<div class="build"><div class="slots"><div class="altnote" style="color:var(--text)">No build is possible with the current removals — restore some gear.</div></div>${whatIfSectionHTML()}</div>`;
+    $("tieHead").textContent="";
+    return;
+  }
+  const MAXSHOW=5;
+  const shown=res.ties.slice(0,MAXSHOW);
+  let html=note;
+  shown.forEach((t,i)=> html+=buildCardHTML(t,i+1,i===0));
+  if(res.ties.length>MAXSHOW)
+    html+=`<div class="altnote" style="margin-top:12px">+ ${res.ties.length-MAXSHOW} more tied loadout${res.ties.length-MAXSHOW>1?'s':''} at ${f2(res.best)} damage.</div>`;
+  box.innerHTML=html;
+  const n=res.ties.length;
+  $("tieHead").textContent = n>1 ? `  ·  ${n} tied at the top` : "";
+}
+
+function renderBreakdown(res,b){
+  const t=res.ties[0];
+  const eqD=t.e.X, eqDM=t.e.Y, tD=t.t.X, tDM=t.t.Y;
+  const totalD=b.baseD+eqD+tD;
+  const totalDM=b.baseDM+eqDM+tDM;
+  const hiddenTag=b.measured?'<span class="tag meas">measured</span>':'<span class="tag est">estimated</span>';
+  const rowsD=[
+    ["True raw base","confirmed 0",0],
+    ["Skill tree","your input",b.skill],
+    ["Weapon or Katana (d)","your sheet",b.katD],
+    ["Clan (d)",b.clanD?"your clan":"none",b.clanD],
+    ["Mastery bonus",b.measured?"measured value":`est. @ level ${Math.round(b.level)}`,b.hidden],
+    ["Titles — passive d","always on",b.passD],
+    ["Titles — active d","3 equipped",tD],
+    ["Equipment (d)","5-slot search",eqD],
+  ];
+  let h=`<thead><tr><th>Base damage source</th><th style="text-align:right">value</th></tr></thead><tbody>`;
+  for(const r of rowsD){
+    const tagged = r[0]==="Mastery bonus"? `${r[0]} ${hiddenTag}` : r[0];
+    h+=`<tr><td><span class="src">${tagged}</span><div class="sub">${r[1]}</div></td><td class="n">${sgn(r[2])}</td></tr>`;
+  }
+  h+=`<tr class="sum"><td>Total base damage (d)</td><td class="n">${f2(totalD)}</td></tr></tbody>`;
+  $("bdBase").innerHTML=h;
+
+  const rowsM=[
+    ["Base","always",1],
+    ["Weapon or Katana (dm)","your sheet",b.katC],
+    ["Clan (dm)",b.clanC?"your clan":"none",b.clanC],
+    ["Titles — active dm","3 equipped",tDM],
+    ["Equipment (dm)","5-slot search",eqDM],
+  ];
+  let m=`<thead><tr><th>Multiplier source</th><th style="text-align:right">+contrib</th></tr></thead><tbody>`;
+  for(const r of rowsM){
+    const val = r[0]==="Base"? "1.000" : sgn3(r[2]);
+    m+=`<tr><td><span class="src">${r[0]}</span><div class="sub">${r[1]}</div></td><td class="n">${val}</td></tr>`;
+  }
+  m+=`<tr class="sum m"><td>Total multiplier</td><td class="n">×${f3(totalDM)}</td></tr>`;
+  m+=`<tr class="bd-spacer"><td>&nbsp;</td><td></td></tr><tr class="bd-spacer"><td>&nbsp;</td><td></td></tr>`;
+  m+=`<tr class="sum"><td>Final M1 = base × mult</td><td class="n" style="color:var(--text);font-weight:700">${f2(res.best)}</td></tr></tbody>`;
+  $("bdMult").innerHTML=m;
+}
+const sgn3=n=>(n>=0?"+":"")+f3(n);
+
+function renderHero(res,b){
+  $("heroDmg").innerHTML = f2(res.best);
+  const t=res.ties[0];
+  $("kpiBase").textContent=f2(b.baseD+t.e.X+t.t.X);
+  $("kpiMult").textContent="×"+f3(b.baseDM+t.e.Y+t.t.Y);
+  $("kpiHidden").textContent=f2(b.hidden);
+  $("kpiHiddenSrc").innerHTML=b.measured?'measured value':`estimated @ lvl ${Math.round(b.level)}`;
+  $("kpiTies").textContent=res.ties.length;
+  const tag=b.measured?'<span class="tag meas">measured hidden bonus</span>':'<span class="tag est">estimated hidden bonus</span>';
+  $("heroSub").innerHTML=`Best of every valid 5-item + 3-title loadout. ${tag}`;
+}
+
+function recalc(){
+  const b=readBase();
+  $("hiddenEst").textContent=f2(b.hiddenEst);
+  const demonSun = MODE==="demon" && SUN;
+  const isKamado = CLAN.mode==="preset" && CLAN.name==="Kamado";
+  b.kamadoSun = demonSun && isKamado;
+  b.sunConstraint = demonSun && !isKamado;
+  const res=evaluate(b, b.sunConstraint ? EQFRONT_SUN : EQFRONT);
+  LAST_RES=res;
+  renderBuilds(res,b);
+  if(res.ties.length){ renderHero(res,b); renderBreakdown(res,b); }
+  else {
+    $("heroDmg").textContent="—";
+    $("kpiBase").textContent="—";
+    $("kpiMult").textContent="—";
+    $("kpiHidden").textContent=f2(b.hidden);
+    $("kpiTies").textContent="0";
+  }
+}
+
+function rarityBadge(t){
+  const label=t.rarity.charAt(0).toUpperCase()+t.rarity.slice(1);
+  return `<span class="rar ${t.rarity}">${label}</span>`;
+}
+function buildTitleList(){
+  const box=$("titleList");
+  box.innerHTML="";
+  TITLES.forEach((t,i)=>{
+    const id="t_"+i;
+    const div=document.createElement("div");
+    div.className="check";
+    div.innerHTML=`<input type="checkbox" id="${id}" ${t.own?"checked":""}>
+      <label for="${id}" class="tl">${t.name}<div class="chips">${rarityBadge(t)}</div></label>`;
+    box.appendChild(div);
+    div.querySelector("input").addEventListener("change",e=>{
+      t.own=e.target.checked; buildTitleFront(); recalc();
+    });
+  });
+}
+
+let GEAR_OPEN=false;
+function escAttr(s){ return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
+function optimalGearNames(){
+  const set=new Set();
+  if(LAST_RES) for(const tie of LAST_RES.ties)
+    for(const st of tie.e.structs)
+      for(const r of slotsFromStruct(st))
+        for(const nm of r.names) set.add(nm);
+  return [...set].sort();
+}
+function gearRowHTML(name, excluded){
+  const a=escAttr(name);
+  return excluded
+    ? `<div class="gear-row ex"><span class="gn">${name}</span><button class="gear-restore" type="button" data-restore="${a}">Restore</button></div>`
+    : `<div class="gear-row"><span class="gn">${name}</span><button class="gx" type="button" data-remove="${a}" aria-label="Remove ${a}">✕</button></div>`;
+}
+function gearPanelHTML(){
+  const cur=optimalGearNames(), ex=[...EXCLUDED].sort();
+  let h=`<div class="gear-panel"><p class="gear-note">Remove any equipment that isn't avaliable to you, the optimiser will rebuild your best loadout based on whats left.</p>`;
+  h+=`<div class="gear-h first">Gear in this loadout</div>`;
+  h+= cur.length ? cur.map(n=>gearRowHTML(n,false)).join('') : `<div class="gear-empty">No build is possible with the current removals.</div>`;
+  h+=`<div class="gear-h">Removed (${ex.length})</div>`;
+  h+= ex.length ? ex.map(n=>gearRowHTML(n,true)).join('') : `<div class="gear-empty">Nothing removed yet.</div>`;
+  return h+`</div>`;
+}
+function whatIfSectionHTML(){
+  const n=EXCLUDED.size;
+  let h=`<div class="build-foot"><button class="whatif-btn" type="button">${GEAR_OPEN?'Hide gear list':'Exclude items from build'}${n?` <span class="cnt">(${n} removed)</span>`:''}</button></div>`;
+  if(GEAR_OPEN) h+=gearPanelHTML();
+  return h;
+}
+function onExclusionsChanged(){ applyExclusions(); buildEqFront(); recalc(); }
+
+$("buildsBox").addEventListener("click",e=>{
+  if(e.target.closest(".whatif-btn")){ GEAR_OPEN=!GEAR_OPEN; recalc(); return; }
+  const rem=e.target.closest("[data-remove]"), res=e.target.closest("[data-restore]");
+  if(rem){ EXCLUDED.add(rem.getAttribute("data-remove")); onExclusionsChanged(); }
+  else if(res){ EXCLUDED.delete(res.getAttribute("data-restore")); onExclusionsChanged(); }
+});
+
+const CLANS=[
+  {n:"Uzui",p:21},{n:"Soyama",p:21},{n:"Rengoku",p:26},{n:"Kamado",p:23,note:"sun immunity"},
+  {n:"Tamayo",p:12},{n:"Shinazugawa",p:18},{n:"Iguro",p:20},{n:"Himejima",p:17},{n:"Douma",p:18},
+  {n:"Agatsuma",p:19},{n:"Ubuyashiki",p:-6},{n:"Tomioka",p:15},{n:"Shabana",p:13},{n:"Kocho",p:12},
+  {n:"Yahaba",p:10},{n:"Urokodaki",p:9},{n:"Susumaru",p:9},{n:"Sabito",p:10},{n:"Makomo",p:0},
+  {n:"Kurotsume",p:5},{n:"Kaneki",p:5},{n:"Aoshima",p:5},{n:"Aori",p:5},{n:"Yukumori",p:30},
+  {n:"Tsukino",p:0},{n:"Toka",p:0},{n:"Suzuki",p:0},{n:"Sakurai",p:0},{n:"Saito",p:2},{n:"Mori",p:0},
+  {n:"Kurosaki",p:0},{n:"Kuroaki",p:0},{n:"Kazetani",p:0},{n:"Kanzaki",p:20},{n:"Hozumi",p:0},
+  {n:"Hagiwara",p:0},{n:"Fukukoshi",p:0},{n:"Fujiwara",p:0},{n:"Aokawa",p:3},{n:"Ando",p:0}
+].sort((a,b)=>a.n.localeCompare(b.n));
+let CLAN={mode:"none",factor:0,name:null};
+function renderClanList(q){
+  q=(q||"").trim().toLowerCase();
+  const m=CLANS.filter(c=>c.n.toLowerCase().includes(q));
+  let h=`<div class="combo-item none-opt" data-none>None (no clan)</div>`;
+  h+= m.length ? m.map(c=>`<div class="combo-item" role="option" data-clan="${c.n}">${c.n}${c.note?` <span class="cnote">(${c.note})</span>`:""}</div>`).join("")
+              : `<div class="combo-empty">No clan matches “${q}”.</div>`;
+  h+=`<div class="combo-item custom" data-custom>Custom / not listed…</div>`;
+  $("clanList").innerHTML=h;
+}
+let clanItems=[], clanActive=-1;
+function openClan(filter){
+  renderClanList(filter);
+  clanItems=[...$("clanList").querySelectorAll(".combo-item")];
+  clanActive=-1; $("clanList").hidden=false; $("clanSearch").setAttribute("aria-expanded","true");
+}
+function closeClan(){ $("clanList").hidden=true; $("clanSearch").setAttribute("aria-expanded","false"); clanActive=-1; }
+function activeClan(i){
+  if(!clanItems.length) return;
+  clanActive=(i+clanItems.length)%clanItems.length;
+  clanItems.forEach((el,idx)=>el.classList.toggle("active",idx===clanActive));
+  clanItems[clanActive].scrollIntoView({block:"nearest"});
+}
+function selectClan(name){
+  const c=CLANS.find(x=>x.n===name);
+  CLAN={mode:"preset",factor:c.p/100,name:c.n};
+  $("clanSearch").value=c.n;
+  $("clanCustomField").hidden=true; recalc();
+}
+function selectNoClan(){ CLAN={mode:"none",factor:0,name:null}; $("clanSearch").value=""; $("clanCustomField").hidden=true; recalc(); }
+function selectCustomClan(){ CLAN={mode:"custom",factor:0,name:null}; $("clanSearch").value="Custom / not listed"; $("clanCustomField").hidden=false; recalc(); $("clanCustom").focus(); $("clanCustom").select(); }
+function pickClan(el){
+  if(!el) return;
+  if(el.hasAttribute("data-none")) selectNoClan();
+  else if(el.hasAttribute("data-custom")) selectCustomClan();
+  else selectClan(el.getAttribute("data-clan"));
+  closeClan();
+}
+$("clanSearch").addEventListener("focus",()=>{ $("clanSearch").select(); openClan(""); });
+$("clanSearch").addEventListener("input",()=>openClan($("clanSearch").value));
+$("clanSearch").addEventListener("keydown",e=>{
+  if($("clanList").hidden){ if(e.key==="ArrowDown") openClan($("clanSearch").value); return; }
+  if(e.key==="ArrowDown"){ e.preventDefault(); activeClan(clanActive+1); }
+  else if(e.key==="ArrowUp"){ e.preventDefault(); activeClan(clanActive-1); }
+  else if(e.key==="Enter"){ e.preventDefault(); pickClan(clanActive>=0?clanItems[clanActive]:clanItems.find(el=>el.hasAttribute("data-clan"))); }
+  else if(e.key==="Escape"){ closeClan(); }
+});
+$("clanList").addEventListener("mousedown",e=>{ const it=e.target.closest(".combo-item"); if(!it) return; e.preventDefault(); pickClan(it); });
+document.addEventListener("mousedown",e=>{ if(!e.target.closest("#clanCombo")) closeClan(); });
+$("clanCustom").addEventListener("input",recalc);
+
+document.querySelectorAll(".mode-btn").forEach(btn=>btn.addEventListener("click",()=>{
+  MODE=btn.getAttribute("data-mode");
+  document.querySelectorAll(".mode-btn").forEach(b=>b.classList.toggle("active",b===btn));
+  $("sunField").hidden = MODE!=="demon";
+  recalc();
+}));
+document.querySelectorAll(".yn-btn").forEach(btn=>btn.addEventListener("click",()=>{
+  SUN = btn.getAttribute("data-sun")==="yes";
+  document.querySelectorAll(".yn-btn").forEach(b=>b.classList.toggle("active",b===btn));
+  recalc();
+}));
+
+["skill","mastery","measVal","katD","katDM"].forEach(id=>{
+  $(id).addEventListener("input",recalc);
+});
+$("measChk").addEventListener("change",e=>{
+  $("measField").hidden=!e.target.checked;
+  recalc();
+});
+applyExclusions();
+buildEqFront();
+buildTitleFront();
+buildTitleList();
+recalc();
+</script>
+</body>
+</html>
